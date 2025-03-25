@@ -26,10 +26,9 @@ def save_rankings(data):
     with open("bot_rankings.json", "w", encoding="utf-8") as f:
         json.dump({"timestamp": timestamp, "data": data}, f, indent=4)
 
-def main():
-    rankings = fetch_bot_rankings()
-    save_rankings(rankings)
-    print("Rankings updated successfully!")
+@app.route("/")
+def home():
+    return jsonify({"message": "Lichess Bot Rankings API is running!", "usage": "/rankings"})
 
 @app.route("/rankings", methods=["GET"])
 def get_rankings():
@@ -40,6 +39,10 @@ def get_rankings():
     except FileNotFoundError:
         return jsonify({"error": "No rankings available"}), 404
 
+# Fetch rankings only when running locally
 if __name__ == "__main__":
-    main()
+    print("Fetching initial rankings...")
+    rankings = fetch_bot_rankings()
+    save_rankings(rankings)
+    print("Rankings updated successfully!")
     app.run(host='0.0.0.0', port=5000)
