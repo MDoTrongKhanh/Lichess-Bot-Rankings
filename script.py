@@ -4,15 +4,22 @@ from datetime import datetime
 from flask import Flask, jsonify
 
 app = Flask(__name__)
+VARIANTS = [
+    "bullet", "blitz", "rapid", "classical", "chess960", "crazyhouse",
+    "antichess", "atomic", "horde", "kingOfTheHill", "racingKings", "threeCheck"
+]
 
 def fetch_bot_rankings():
-    url = "https://lichess.org/api/player/top/10/bot"
-    response = requests.get(url)
-    if response.status_code == 200:
-        return response.json()
-    else:
-        print("Error fetching rankings:", response.status_code)
-        return None
+    rankings = {}
+    for variant in VARIANTS:
+        url = f"https://lichess.org/api/player/top/10/{variant}"
+        response = requests.get(url)
+        if response.status_code == 200:
+            rankings[variant] = response.json()
+        else:
+            print(f"Error fetching {variant} rankings:", response.status_code)
+            rankings[variant] = []
+    return rankings
 
 def save_rankings(data):
     timestamp = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
@@ -21,11 +28,8 @@ def save_rankings(data):
 
 def main():
     rankings = fetch_bot_rankings()
-    if rankings:
-        save_rankings(rankings)
-        print("Rankings updated successfully!")
-    else:
-        print("Failed to update rankings.")
+    save_rankings(rankings)
+    print("Rankings updated successfully!")
 
 @app.route("/rankings", methods=["GET"])
 def get_rankings():
