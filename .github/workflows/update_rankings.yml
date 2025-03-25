@@ -1,0 +1,32 @@
+name: Update Lichess Bot Rankings
+
+on:
+  schedule:
+    - cron: "0 0 * * *"  # Chạy mỗi ngày lúc 00:00 UTC
+  workflow_dispatch:  # Cho phép chạy thủ công
+
+jobs:
+  update-rankings:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install flask requests
+
+      - name: Run update script
+        run: python script.py
+
+      - name: Commit and push changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add bot_rankings.json
+          git commit -m "Auto-update bot rankings" || echo "No changes to commit"
+          git push
