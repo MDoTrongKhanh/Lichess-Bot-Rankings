@@ -9,22 +9,52 @@ VARIANTS = [
     "antichess", "atomic", "horde", "kingOfTheHill", "racingKings", "threeCheck"
 ]
 
+LICHESS_API = "https://lichess.org/api/users"
+BOTS_LIST = ["ToromBot", "AnotherBot", "Khanh_Bot"]  # Danh sách bot cần lấy Elo (có thể tự động cập nhật)
+
+def fetch_all_bots():
+    url = "https://lichess.org/api/player"
+    response = requests.get(url)
+    if response.status_code == 200:
+        data = response.json()
+        bots = [player["id"] for player in data if player.get("title") == "BOT"]
+        return bots
+    print("Error fetching bot list:", response.status_code)
+    return []
+
 def fetch_bot_rankings():
-    rankings = {}
-    for variant in VARIANTS:
-        url = f"https://lichess.org/api/player/top/10/{variant}"
-        response = requests.get(url)
+    rankings = {variant: [] for variant in VARIANTS}
+    bots = fetch_all_bots() if not BOTS_LIST else BOTS_LIST
+    
+    chunk_size = 100  # Lichess API giới hạn 300 người mỗi request, chia nhỏ để tránh lỗi
+    for i in range(0, len(bots), chunk_size):
+        chunk = bots[i:i + chunk_size]
+        response = requests.post(LICHESS_API, json=chunk)
         if response.status_code == 200:
-            rankings[variant] = response.json()
+            bot_data = response.json()
+            for bot in bot_data:
+                username = bot["id"]
+                for variant in VARIANTS:
+                    if variant in bot["perfs"]:
+                        rating = bot["perfs"][variant].get("rating", 0)
+                        rankings[variant].append({"bot": username, "rating": rating})
         else:
-            print(f"Error fetching {variant} rankings:", response.status_code)
-            rankings[variant] = []
+            print("Error fetching bot data:", response.status_code)
+    
+    # Sắp xếp thứ hạng theo Elo giảm dần
+    for variant in VARIANTS:
+        rankings[variant].sort(key=lambda x: x["rating"], reverse=True)
     return rankings
 
 def save_rankings(data):
     timestamp = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
     with open("bot_rankings.json", "w", encoding="utf-8") as f:
         json.dump({"timestamp": timestamp, "data": data}, f, indent=4)
+
+def main():
+    rankings = fetch_bot_rankings()
+    save_rankings(rankings)
+    print("Rankings updated successfully!")
 
 @app.route("/")
 def home():
@@ -39,10 +69,6 @@ def get_rankings():
     except FileNotFoundError:
         return jsonify({"error": "No rankings available"}), 404
 
-# Fetch rankings only when running locally
 if __name__ == "__main__":
-    print("Fetching initial rankings...")
-    rankings = fetch_bot_rankings()
-    save_rankings(rankings)
-    print("Rankings updated successfully!")
+    main()
     app.run(host='0.0.0.0', port=5000)
